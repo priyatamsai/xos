@@ -1,0 +1,136 @@
+alias Cause S0;
+alias VPageno S1;
+alias Ipaddr S2;
+
+Cause=EFR%10;
+VPageno=(EFR/10)%100;
+Ipaddr=(EFR/1000);
+
+if(Cause==1) then
+print "Illegal instructions";
+inline "JMP 11812";
+endif;
+
+if(Cause==2) then
+print "Illegal Memory access";
+inline "JMP 11812";
+endif;
+
+if(Cause==3) then
+print "Arithmetic exception";
+inline "JMP 11812";
+endif;
+
+if(Cause==4) then
+print "Illegal operands";
+inline "JMP 11812";
+endif;
+
+if([PTBR+2*VPageno]==-1) then
+print("page -1");
+inline "JMP 11812";
+endif;
+
+alias i S3;
+alias free S4;
+
+i=0;
+while(i<=63) do
+if([MEM_LIST+i]==0) then
+break;
+endif;
+i=i+1;
+endwhile;
+
+if(i<=63) then
+[MEM_LIST+i]=1;
+free=i;
+
+else
+
+alias scan S5;
+scan=PTBR+2*VPageno;
+
+while(1) do
+if(scan==1280) then
+scan=1024;
+endif;
+
+if([scan+1]=="00") then
+scan=scan+2;
+
+else
+if(scan%8==6) then
+scan=scan+2;
+
+else
+if([MEM_LIST+[scan]]>1) then
+scan=scan+2;
+
+else
+if([scan+1]=="01") then
+break;
+endif;
+if([scan+1]=="11") then
+[scan+1]="01";
+scan=scan+2;
+endif;
+
+endif;
+
+endif;
+
+endif;
+
+endwhile;
+
+i=448;
+while(i<=511) do
+if([DISK_LIST+i]==0) then
+break;
+endif;
+i=i+1;
+endwhile;
+
+if(i==512) then
+print("dfs probs");
+inline "JMP 11812";
+endif;
+
+free=[scan];
+
+store(free,i);
+
+[DISK_LIST+i]=1;
+
+[scan]=i;
+[scan+1]="00";
+
+store(6,20);
+
+endif;
+
+alias phyPageNo S15;
+phyPageNo=[PTBR+2*VPageno];
+
+if(phyPageNo>=21&&phyPageNo<=447) then
+load(free,phyPageNo);
+endif;
+
+if(phyPageNo>=448) then
+load(free,phyPageNo);
+[DISK_LIST+phyPageNo]=[DISK_LIST+phyPageNo]-1;
+store(6,20);
+endif;
+
+[PTBR+2*VPageno]=free;
+[PTBR+2*VPageno+1]="11";
+
+SP=SP+1;
+
+alias physicalSP S14;
+physicalSP=[PTBR+(2*SP/512)]*512+(SP%512);
+
+[physicalSP]=Ipaddr;
+
+ireturn;

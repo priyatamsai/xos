@@ -1,0 +1,214 @@
+alias physicalsp S0;
+physicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+
+alias syscallno S1;
+syscallno=[physicalsp-1];
+
+alias j S11;
+alias k S12;
+
+alias ind S8;
+
+//print"in int 5";
+	///fork system call
+if(syscallno==8)then
+
+	alias freepcb S2;
+
+	freepcb=READY_LIST;
+
+	while(freepcb<2560&&[freepcb+1]!=0)do
+		freepcb=freepcb+32;
+	endwhile;
+
+	if(freepcb>=2560)then
+		[physicalsp-2]=-1;	//return -1 failure
+		ireturn;	
+	endif;
+	
+	alias childpid S3;
+	childpid=(freepcb-READY_LIST)/32;
+	[freepcb]=childpid;
+	
+	alias parentPID S4;
+	parentPID = (PTBR - 1024) / 8;
+	
+	alias i S6;
+	
+	
+	
+	i=1280+26;//as free blocks can start from here.
+	/////checking free blocks in memory free list
+	while(i<1344)do
+		if([i]==0)then
+			break;
+			
+		endif;
+		i=i+1;
+	endwhile;
+	
+
+	
+	
+//-------------------added to give stack page by using swap if no free in memory is present.
+	
+	if(i==1344)then
+j=PTBR;
+	while(1==1)do
+////print"yes";
+	if(j>=1280)then
+		j=1024;
+	endif;
+	if(j%8==6)then	//if its stack page
+		j=j+2;
+		//print"stack";
+		continue;
+	endif;
+						/////1
+	if([j+1]=="00"||[j+1]=="")then
+		//print"in zz";
+		j=j+2;
+		continue;
+	endif;					////2
+//if at all not ready process checking is required .check it.
+	//if([k+1]=="01"||[k+1]=="11")then	////-1
+	if([MEM_LIST+[j]]>1)then	//checking page is shared by more than 1
+		j=j+2;
+		//print"in mem";
+		continue;
+	endif;
+					/////3
+	if([j+1]=="11")then
+		//print"yyy";
+		[j+1]="01";
+		j=j+2;
+		continue;
+	endif;
+	break;		
+endwhile;
+
+if([j+1]=="01")then
+	//print"to check";
+	alias ind S8;
+	ind=448;
+	while(ind<512&&[DISK_LIST+ind]!=0)do
+		ind=ind+1;
+	endwhile;
+	if(ind==512)then
+		[physicalsp-2]=-1;
+		ireturn;
+	endif;
+i=1280+[j];
+	store([j],ind);
+	[DISK_LIST+ind]=1;
+	store(6,20);
+
+
+	[j]=ind;
+	[j+1]="00";
+	
+	
+else
+	//print"booooo";
+breakpoint;
+
+
+
+endif;
+	
+				
+	endif;
+	
+//-------------------------------------------ending of extra added.
+	[i]=1;
+	
+	i=i-1280;
+	
+	//alias k S9;
+	k=0;
+	while(k<512)do
+		[i*512+k]=[[PTBR+6]*512+k];	//copying stack from par to child
+		k=k+1;
+	endwhile;
+	
+	[1024+childpid*8+6]=i;
+	[1024+childpid*8+7]="11";
+	
+	
+	
+	
+	
+	
+	
+	
+	alias count S5;
+	
+	
+	i=1;
+	
+	//assigning physical pages,valid and referrence to child.
+	
+	while(i<6)do
+		[1024+childpid*8+i]=[PTBR+i];//referrence,valid bit copy
+		[1024+childpid*8+i-1]=[PTBR+i-1];//page no copied changed if valid bit is present.
+		//what if valid bit is not present.
+		
+		if([PTBR+i]=="01"||[PTBR+i]=="11")then
+			[MEM_LIST+[PTBR+i-1]]=[MEM_LIST+[PTBR+i-1]]+1;
+			
+		else
+		if([PTBR+i-1]>=448)then
+			[DISK_LIST+[PTBR+i-1]]=[DISK_LIST+[PTBR+i-1]]+1;
+			store(6,20);	//commiting dfl back.
+		endif;
+		endif;
+		
+		i=i+2;
+	endwhile;
+	
+
+
+alias childpcb S13;
+childpcb=READY_LIST+childpid*32;
+
+	[childpcb+5]=1024+childpid*8; //setting child ptbr in child pcb
+	
+	
+	[childpcb+4]=[physicalsp]; //setting ip value in child pcb
+	
+	[childpcb+3]=SP-1; //setting sp in child pcb
+	
+	[childpcb+2]=BP;
+	[childpcb+7]=R0;
+	[childpcb+8]=R1;	
+	[childpcb+9]=R2;
+	[childpcb+10]=R3;		//setting machine registers
+	[childpcb+11]=R4;
+	[childpcb+12]=R5;
+	[childpcb+13]=R6;
+	[childpcb+14]=R7;
+	[childpcb+6]=PTLR;//setting ptlr to child pcb
+	[childpcb+1]=1;//ready state
+	[childpcb+31]=parentPID;//setting ppid
+	i=15;
+	while(i<31)do
+		[childpcb+i]=[READY_LIST+parentPID*32+i];
+		[childpcb+i+1]=[READY_LIST+parentPID*32+i+1];
+		
+		if([childpcb+i]!=-1)then
+			[1344+[childpcb+i]*2+1]=[1344+[childpcb+i]*2+1]+1;
+		endif;
+		
+		i=i+2;
+	endwhile;
+	
+	[physicalsp-2]=childpid;
+	
+	alias childphysicalsp S10;
+	childphysicalsp=([[childpcb+5] + 2 * ((SP-1) / 512)] * 512) + ((SP-1) % 512);
+	[childphysicalsp-1]=-2;	//return value in child process.
+	ireturn;
+endif;
+		
+				
+		

@@ -1,0 +1,68 @@
+//print("-------------------");
+//print("TIMER");
+alias currentPID S0;
+currentPID = (PTBR - 1024) / 8;
+alias currentPCB S1;
+currentPCB = READY_LIST + 32 * currentPID;
+//print("save");
+//print(currentPID);
+if([currentPCB+1]<32)then
+	[ currentPCB + 1 ] = 1;
+endif;
+[ currentPCB + 2 ] = BP;
+[ currentPCB + 3 ] = SP - 1;	
+alias physicalSP S3;
+physicalSP = ([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+[ currentPCB + 4 ] = [ physicalSP ];
+[ currentPCB + 5 ] = PTBR;
+[ currentPCB + 6 ] = PTLR;	
+[ currentPCB + 7 ] = R0;	
+[ currentPCB + 8 ] = R1;	
+[ currentPCB + 9 ] = R2;	
+[ currentPCB + 10] = R3;	
+[ currentPCB + 11] = R4;	
+[ currentPCB + 12] = R5;	
+[ currentPCB + 13] = R6;	
+[ currentPCB + 14] = R7;	
+//print("next");
+//newPCB
+alias newPCB S4;
+newPCB=currentPCB+32;
+if(newPCB>READY_LIST+1024)then
+	newPCB=READY_LIST;
+endif;
+while ([newPCB + 1]!=1) do
+//if([1537]==101)then
+//	print("~~~~~");
+//endif;
+	newPCB=newPCB+32;
+	if(newPCB>=READY_LIST+1024)then
+		newPCB=READY_LIST;
+	endif;	
+endwhile;
+//print("load");
+//print([newPCB]);
+[ newPCB + 1 ] = 2;
+BP=[ newPCB + 2 ];
+SP=[ newPCB + 3 ];
+PTBR=[ newPCB + 5 ];
+PTLR=[ newPCB + 6 ];	
+R0=[ newPCB + 7 ];
+R1=[ newPCB + 8 ];
+R2=[ newPCB + 9 ];
+R3=[ newPCB + 10];
+R4=[ newPCB + 11];
+R5=[ newPCB + 12];
+R6=[ newPCB + 13];
+R7=[ newPCB + 14];
+
+SP = SP + 1; 
+alias newphysicalSP S5; 
+newphysicalSP = ([PTBR + 2 * (SP / 512)] * 512) + (SP % 512); 
+[ newphysicalSP ] = [ newPCB + 4 ];
+//if(currentPCB!=newPCB)then
+//	print("next");
+//	print([newPCB]);
+//endif;
+//print("!TIMER");
+ireturn;

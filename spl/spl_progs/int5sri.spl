@@ -1,0 +1,149 @@
+//print("-------------------");
+//print("In INT 5");
+
+//print("set phySP");
+alias physicalSP S0;
+physicalSP = ([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+
+//print("arguements");
+alias sysCallNo S1;
+sysCallNo=[physicalSP-1];
+
+alias currentPID S2;
+alias currentPCB S3;
+alias PPOFTphysical S4;
+alias PPOFTindex S5;
+alias newPCB S6;
+alias temp S7;
+alias SWOFTphysical S8;
+alias newPID S9;
+alias newPTBR S10;
+alias temp2 S11;
+alias available S12;
+alias required S13;
+alias i S14;
+alias page S15;
+
+//Fork()
+if(sysCallNo==8)then
+//print("FORK");
+	currentPID = (PTBR - 1024) / 8;	
+	currentPCB = READY_LIST + 32 * currentPID;
+//print("PCB");	
+	newPCB=currentPCB+32;
+	if(newPCB>READY_LIST+1024)then
+		newPCB=READY_LIST;
+	endif;
+	while ([newPCB + 1]!=0&&newPCB!=currentPCB) do
+		newPCB=newPCB+32;
+		if(newPCB>READY_LIST+1024)then
+			newPCB=READY_LIST;
+		endif;	
+	endwhile;
+	if(newPCB==currentPCB)then
+		//print("full");
+		[physicalSP-2]=-1;
+		ireturn;
+	endif;
+//print("PID");
+	newPID = (newPCB-READY_LIST)/32;	
+	[newPCB+0]=newPID;
+	newPTBR=1024+newPID*8;
+//------------------------------------------------------------
+//print("MF");
+	required=0;
+	temp=PTBR;
+	while(temp<PTBR+7)do
+		if([temp+1]=="01"||[temp+1]=="11")then
+			required=required+1;
+		endif;
+		temp=temp+2;
+	endwhile;
+	available=0;
+	temp=MEM_LIST;
+	while(temp<MEM_LIST+64)do
+		if([temp]==0)then
+			available=available+1;
+		endif;
+		temp=temp+1;
+	endwhile;
+
+	if(available<required)then
+		//print("!MF");
+		[physicalSP-2]=-1;
+		ireturn;
+	endif;
+
+//print("copy page");
+alias temp3 S1;
+	temp=MEM_LIST;
+	i=0;
+	while(temp<MEM_LIST+64&&required!=0)do
+		if([PTBR+i]==-1)then//////////////////////
+			[newPTBR+i]=-1;
+			[newPTBR+i+1]=[PTBR+i+1];
+			i=i+2;
+//			required=required-1;
+			continue;
+		endif;
+		if([temp]==0)then
+			[temp]=1;
+			page=temp%64;
+			temp2=page*512;
+			temp3=[PTBR+i]*512;
+			while(temp2<page*512+512)do
+				[temp2]=[temp3];
+				temp2=temp2+1;
+				temp3=temp3+1;
+			endwhile;
+			[newPTBR+i]=page;
+			[newPTBR+i+1]=[PTBR+i+1];
+			i=i+2;
+			required=required-1;
+		endif;
+		temp=temp+1;
+	endwhile;
+//-------------------------------------------------------------------
+//print("PTBR");
+	[newPCB+5]=newPTBR;
+//print("IP");
+	[newPCB+4]=[physicalSP];
+//print("SP");
+	[ newPCB + 3 ] = SP-1;
+
+	[ newPCB + 2 ] = BP;
+	[newPCB+6]=[currentPCB+6];
+	[ newPCB + 7 ] = R0;	
+	[ newPCB + 8 ] = R1;	
+	[ newPCB + 9 ] = R2;	
+	[ newPCB + 10] = R3;	
+	[ newPCB + 11] = R4;	
+	[ newPCB + 12] = R5;	
+	[ newPCB + 13] = R6;	
+	[ newPCB + 14] = R7;		
+//print("PPOFT");
+	SWOFTphysical=1344;
+	PPOFTphysical=currentPCB+15;
+	i=15;
+	while(PPOFTphysical<currentPCB+31)do
+		if([PPOFTphysical]!=-1)then
+			[SWOFTphysical+[PPOFTphysical]*2+1]=[SWOFTphysical+[PPOFTphysical]*2+1]+1;
+			[newPCB+i]=[PPOFTphysical];
+			[newPCB+i+1]=[PPOFTphysical+1];
+		else
+			[newPCB+i]=[PPOFTphysical];
+			[newPCB+i+1]=[PPOFTphysical+1];
+		endif;
+		i=i+2;
+		PPOFTphysical=PPOFTphysical+2;
+	endwhile;
+//print("state");
+	[newPCB+1]=1;
+	[physicalSP-2]=newPID;
+//print("child ret");
+	temp=[newPCB+3];
+	physicalSP = ([newPTBR + 2 * (temp / 512)] * 512) + (temp % 512);
+	[physicalSP-1]=-2;
+//print("!FORK");
+	ireturn;
+endif;

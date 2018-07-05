@@ -1,0 +1,146 @@
+alias physicalsp S0;
+physicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+
+alias syscallno S1;
+syscallno=[physicalsp-1];
+
+
+
+////print"in int 5";
+	///fork system call
+if(syscallno==8)then
+//print("fork");
+	alias freepcb S2;
+
+	freepcb=READY_LIST;
+
+	while(freepcb<2560&&[freepcb+1]!=0)do
+		freepcb=freepcb+32;
+	endwhile;
+
+	if(freepcb>=2560)then
+		[physicalsp-2]=-1;	//return -1 failure
+//print("!FORK");
+		ireturn;	
+	endif;
+	
+	alias childpid S3;
+	childpid=(freepcb-READY_LIST)/32;
+	[freepcb]=childpid;////////check whether ok or not..assigning pid to child process.
+	
+	alias parentPID S4;
+	parentPID = (PTBR - 1024) / 8;
+	
+	alias count S5;
+	alias i S6;
+	count=0;
+	i=1;
+	
+	//counting no. of blocks to assign for process in memory
+	while(i<8)do
+		if([PTBR+i]=="01"||[PTBR+i]=="11")then
+			count=count+1;
+		endif;
+		i=i+2;
+	endwhile;
+	
+	alias freecount S7;
+	freecount=0;
+	i=1280+25;//as free blocks can start from here.
+	/////checking free blocks in memory free list
+	while(i<1344)do
+		if([i]==0)then
+			freecount=freecount+1;
+		endif;
+		i=i+1;
+	endwhile;
+	
+	if(count>freecount)then
+		[physicalsp-2]=-1;	//failure return -1
+//print("!FORK");
+		ireturn;	
+	endif;
+	
+	i=1;
+	
+	//assigning physical pages,valid and referrence to child.
+	
+	while(i<8)do
+		[1024+childpid*8+i]=[PTBR+i];//referrence,valid bit copy
+		[1024+childpid*8+i-1]=[PTBR+i-1];//page no copied changed if valid bit is present.
+		//what if valid bit is not present.
+		
+		if([PTBR+i]=="01"||[PTBR+i]=="11")then
+			//count=count+1;
+			alias j S8;
+			j=1280+25;
+		
+			/////checking free blocks in memory free list
+			while(j<1344)do
+				if([j]==0)then
+					break;
+				endif;
+				j=j+1;
+			endwhile;
+			
+			[1024+childpid*8+i-1]=j-1280;//page no changed as valid is present.	
+			[j]=1;
+			
+			j=j-1280;
+			//copy content of child from parent in memory...
+			
+			alias k S9;
+			k=0;
+			while(k<512)do
+				[j*512+k]=[[PTBR+i-1]*512+k];
+				k=k+1;
+			endwhile;
+			
+		endif;
+		
+		i=i+2;
+	endwhile;
+	
+	
+	[READY_LIST+childpid*32+5]=1024+childpid*8; //setting child ptbr in child pcb
+	
+	
+	[READY_LIST+childpid*32+4]=[physicalsp]; //setting ip value in child pcb
+	
+	[READY_LIST+childpid*32+3]=SP-1; //setting sp in child pcb
+	
+	[READY_LIST+childpid*32+2]=BP;
+	[READY_LIST+childpid*32+7]=R0;
+	[READY_LIST+childpid*32+8]=R1;	
+	[READY_LIST+childpid*32+9]=R2;
+	[READY_LIST+childpid*32+10]=R3;		//setting machine registers
+	[READY_LIST+childpid*32+11]=R4;
+	[READY_LIST+childpid*32+12]=R5;
+	[READY_LIST+childpid*32+13]=R6;
+	[READY_LIST+childpid*32+14]=R7;
+	[READY_LIST+childpid*32+6]=PTLR;//setting ptlr to child pcb
+	[READY_LIST+childpid*32+1]=1;//ready state
+	[READY_LIST+childpid*32+31]=parentPID;//setting ppid
+	i=15;
+	while(i<31)do
+		[READY_LIST+childpid*32+i]=[READY_LIST+parentPID*32+i];
+		[READY_LIST+childpid*32+i+1]=[READY_LIST+parentPID*32+i+1];
+		
+		if([READY_LIST+childpid*32+i]!=-1)then
+			[1344+[READY_LIST+childpid*32+i]*2+1]=[1344+[READY_LIST+childpid*32+i]*2+1]+1;
+		endif;
+		
+		i=i+2;
+	endwhile;
+	
+	[physicalsp-2]=childpid;
+	
+	alias childphysicalsp S10;
+	childphysicalsp=([[READY_LIST+childpid*32+5] + 2 * ((SP-1) / 512)] * 512) + ((SP-1) % 512);
+	[childphysicalsp-1]=-2;	//return value in child process.
+//print("!FORK");
+	ireturn;
+endif;
+		
+				
+		

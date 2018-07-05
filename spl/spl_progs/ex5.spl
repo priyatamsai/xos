@@ -1,0 +1,185 @@
+
+
+alias physicalSP S0;
+alias syscallno S1;
+alias i S2;
+alias j S3;
+alias cp_pid S4;
+alias p_pid S5;
+alias cp_pcb S6;
+alias child_ptbr S7;
+alias flag1 S8;
+alias flag2 S9;
+
+alias c_openfile S11;
+alias p_openfile S12;
+alias c_physicalSP S13;
+
+alias stack S15;
+physicalSP = ([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);    //getting physical SP
+syscallno=[physicalSP-1];
+
+if syscallno==8 then
+      i=0;
+     //print("fc");
+      while(i<32) do
+        if [READY_LIST+i*32+1]==0 then
+            cp_pid=i;
+            [READY_LIST+i*32]=i;
+         break;
+        endif;
+         i=i+1;
+      endwhile;
+      
+      if i==32 then
+         [physicalSP-2]=-1;
+         ireturn;
+      endif;
+      
+      p_pid=(PTBR-1024)/8;
+      child_ptbr=PAGE_TABLE+cp_pid*8;
+     i=0;
+     while(i<64) do
+          if [MEM_LIST+i]==0 then
+               stack=i;
+               [MEM_LIST+i]=1;
+               [child_ptbr+3*2]=stack;
+               [child_ptbr+3*2+1]="01";
+               j=0;
+               while(j<512) do
+                  [stack*512+j]=[[PTBR+3*2]*512+j];
+                  j=j+1;
+               endwhile;                
+               break;
+           endif;
+           i=i+1;
+     endwhile;
+     alias victim_page S14;
+     alias vp_address S10;
+     if i==64 then
+        //[physicalSP-2]=-1;
+        //ireturn;
+        flag1=0;
+        flag2=0;
+        i=(PTBR-1024)/8;
+         i=i+1;
+           while(flag2==0) do
+                j=0;
+              
+                 while(j<3) do
+                 
+                    if [PAGE_TABLE+8*i+2*j+1]=="01"&&[MEM_LIST+[PAGE_TABLE+8*i+2*j]]<=1 then
+                       victim_page=[PAGE_TABLE+8*i+2*j];
+                       vp_address=PAGE_TABLE+8*i+2*j;
+                       flag2=1;
+                       break;
+                    endif;
+                    
+                    if [PAGE_TABLE+8*i+2*j+1]=="11" then
+                         [PAGE_TABLE+8*i+2*j+1]="01";
+                    endif;
+                    
+                    j=j+1;
+                 endwhile;
+                  
+              if i==31 then
+                 i=0;
+              else 
+               i=i+1;
+              endif;
+             endwhile;
+             
+     
+     
+//print("4");
+   i=448;
+   while(i<512) do
+     if [DISK_LIST+i]==0 then
+         [DISK_LIST+i]=[DISK_LIST+i]+1;
+         store(6,20);
+         store([vp_address],i);
+         [vp_address]=i;
+         [vp_address+1]="00";
+         break;
+      endif;
+     i=i+1;
+   endwhile;
+   //print("5");
+   if i==512 then
+      [physicalSP-2]=-1;
+         ireturn;
+   endif;
+   [child_ptbr+3*2]=victim_page;
+   [child_ptbr+3*2+1]="01";
+          
+   endif;
+     
+     alias syswide S10;
+     
+      i=0;
+      while(i<3) do
+          [child_ptbr+2*i]=[PTBR+2*i];
+          [child_ptbr+2*i+1]=[PTBR+2*i+1];
+        
+        if [child_ptbr+2*i+1]%10==1 then
+           [MEM_LIST+[child_ptbr+2*i]]=[MEM_LIST+[child_ptbr+2*i]]+1;
+        endif;
+        
+        if [child_ptbr+2*i+1]%10==0&&[child_ptbr+2*i]>=448 then
+             [DISK_LIST+[child_ptbr+2*i]]=[DISK_LIST+[child_ptbr+2*i]]+1;
+             store(6,20);
+        endif;
+        
+        i=i+1;
+        
+      endwhile;
+  
+      cp_pcb=READY_LIST+cp_pid*32;
+      [cp_pcb+0]=cp_pid;
+      [cp_pcb+1]=1;
+      [cp_pcb+2]=BP;
+      [cp_pcb+3]=SP-1;
+      [cp_pcb+4]=[physicalSP];
+      [cp_pcb+5]=child_ptbr;
+      [cp_pcb+6]=4;
+      [cp_pcb+7]=R0;
+      [cp_pcb+8]=R1;
+      [cp_pcb+9]=R2;
+      [cp_pcb+10]=R3;
+      [cp_pcb+11]=R4;
+      [cp_pcb+12]=R5;
+      [cp_pcb+13]=R6;
+      [cp_pcb+14]=R7;
+      c_openfile=cp_pcb+15;
+      p_openfile=READY_LIST+p_pid*32+15;
+      i=0;
+      
+      while(i<8) do
+            if [p_openfile+2*i]==-1 then
+                  [c_openfile+2*i]=-1;
+                  [c_openfile+2*i+1]=0;
+                  i=i+1;
+                  continue;
+             endif;
+             
+             if [p_openfile+2*i]!=-1 then
+                       [c_openfile+2*i]=[p_openfile+2*i];
+                       [c_openfile+2*i+1]=[p_openfile+2*i+1];
+                       syswide=[p_openfile+2*i];
+                       [FILE_TABLE+2*syswide+1]=[FILE_TABLE+2*syswide+1]+1;
+               endif;
+               i=i+1;
+         endwhile;
+      
+      c_physicalSP = ([(PAGE_TABLE+8*cp_pid) + 2 * ((SP-1) / 512)] * 512) + ((SP-1) % 512);
+     
+      [c_physicalSP-1]=-2;
+      [physicalSP-2]=cp_pid;
+      
+      [cp_pcb+31]=p_pid;
+     //print("fo");
+     
+   ireturn;
+
+endif;
+

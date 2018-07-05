@@ -1,0 +1,110 @@
+//ireturn;
+
+alias physicalsp S0;
+physicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+
+alias syscallno S1;
+alias filedis S2;
+filedis=[physicalsp-4];
+
+alias wrd S3;
+wrd=[physicalsp-3];
+
+//print"in int 4";
+
+syscallno=[physicalsp-1];
+
+	///write system call
+
+if(syscallno==5)then
+	if(filedis<0||filedis>7)then
+		[physicalsp-2]=-1;
+		ireturn;
+	endif;
+	///checking in per proces open file table for free entry
+	alias currentPID S4;
+	currentPID = (PTBR - 1024) / 8;
+	
+	if([READY_LIST+currentPID*32+15+filedis*2]==-1)then
+		[physicalsp-2]=-1;
+		ireturn;
+	endif;
+	///check in swoft to get corresponding fat entry
+	alias fat_ind S5;
+	fat_ind=[1344+[READY_LIST+currentPID*32+15+filedis*2]*2];
+	
+	alias lseek S6;
+	
+	lseek=[READY_LIST+currentPID*32+15+filedis*2+1];
+	
+		///loading basic block
+	load(1,[5*512+fat_ind*8+2]);
+	
+		///if lseek is pointing to non -1 ie reserved block
+	if([512+lseek/512]!=-1)then	
+		alias datablk S7;
+		datablk=[512+lseek/512];
+		
+		load(1,datablk);
+		[512+lseek%512]=wrd;
+		store(1,datablk);
+		
+		[physicalsp-2]=0;
+		[READY_LIST+currentPID*32+15+filedis*2+1]=[READY_LIST+currentPID*32+15+filedis*2+1]+1;	
+		ireturn;
+	
+	else
+		//////fetch free block from diskfreelist
+		alias i S7;
+		i=24;
+		
+		while(i<=447)do
+			if([DISK_LIST+i]==0)then
+				break;
+			endif;
+			i=i+1;
+		endwhile;
+	
+		if(i>447)then
+			[physicalsp-2]=-1;
+			ireturn;
+		endif;
+	
+		[DISK_LIST+i]=1;
+		[512+lseek/512]=i;
+			///storing basic block
+		store(1,[5*512+fat_ind*8+2]);
+		
+		[5*512+fat_ind*8+1]=[5*512+fat_ind*8+1]+512;	//increasing size of file by 1;
+		
+		//loading block to scratchpad
+		
+			load(1,i);
+		
+		[512+lseek%512]=wrd;
+		
+		store(1,i);
+		
+		store(5,19);
+		store(6,20);
+		
+		[physicalsp-2]=0;
+		ireturn;
+		
+	endif;
+	
+	
+endif; ////ending sys call write
+	
+	
+	
+	
+	
+	
+	ireturn;
+	
+	
+	
+	
+	////if lseeek is greater than 256 *512..missing pls check..
+

@@ -1,0 +1,188 @@
+alias physicalsp S0;
+physicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+
+alias syscallno S1;
+
+
+//print"in int 1";
+
+syscallno=[physicalsp-1];
+
+
+alias filename S2;
+filename=[physicalsp-3];
+
+
+alias fat_in S3;
+
+
+fat_in=5*512;
+
+
+//////create
+if(syscallno==1)then
+	while(fat_in<6*512)do
+		if([fat_in]==filename)then
+		break;
+		endif;
+		
+		fat_in=fat_in+8;
+	endwhile;
+	print "-------------";
+	
+	if(fat_in<6*512)then
+		[physicalsp-2]=0;
+		ireturn;
+	endif;
+	
+	alias base_dfl S4;
+	
+	base_dfl=6*512;
+	
+	alias i S5;
+	i=24;////////////////starts from that position
+	
+	while(i<448)do
+		if([base_dfl+i]==0)then
+		break;
+		endif;
+		i=i+1;
+	endwhile;
+	
+	if(i==448)then
+		[physicalsp-2]=-1;
+		ireturn;
+	endif;
+	
+	
+	///////////to check a free block in fat.
+	fat_in=5*512+2;
+	
+	while(fat_in<6*512)do
+	
+		if([fat_in]==-1)then
+			break;
+		endif;
+	
+		fat_in=fat_in+8;
+	
+	endwhile;
+	print("***");
+	
+	if(fat_in>=6*512)then
+		[physicalsp-2]=-1;
+		ireturn;
+	endif;
+	
+	print("***");
+	fat_in=fat_in-2;
+	[fat_in]=filename;
+	[fat_in+1]=0;
+	[fat_in+2]=i;
+	
+	load(1,[fat_in+2]);
+	
+	alias spad S6;
+	spad=512;
+	while(spad<1024)do
+			[spad]=-1;
+			spad=spad+1;
+	endwhile;
+	
+	store(1,[fat_in+2]);
+		
+	[DISK_LIST+[fat_in+2]]=1;
+	store(5,19);
+	store(6,20);
+	[physicalsp-2]=0;
+	print("created!!");
+	
+	
+endif;
+	
+	///delete
+if(syscallno==4)then
+	while(fat_in<6*512)do	
+		if([fat_in]==filename)then
+			break;
+		endif;
+	
+		fat_in=fat_in+8;
+	
+	endwhile;
+	print "------delete ------";
+	
+	if(fat_in>=6*512)then
+		[physicalsp-2]=-1;
+		ireturn;
+	endif;
+	
+	fat_in=(fat_in-5*512)/8;
+	alias swof S7;
+	
+	swof=1344;
+	///////////checking if file is open some where in any process
+	while(swof<1472)do
+		if([swof]==fat_in)then
+			print("file is open");
+			[physicalsp-2]=-1;
+			ireturn;
+		endif;
+	
+		swof=swof+2;
+	endwhile;
+	
+	alias ind_in_basic S8;
+	alias data_block S9;
+	ind_in_basic=0;
+	
+	
+	load(1,[5*512+fat_in*8+2]);////basic block loading
+	//////erasing all data blocks using basic block
+	
+	while(ind_in_basic<512&&[512+ind_in_basic]!=-1)do	//what if non continues blks..check;
+		data_block=[512+ind_in_basic];
+		load(1,data_block);
+		
+		alias temp S10;
+		temp=512;
+		while(temp<1024)do
+			[temp]="";
+			temp=temp+1;
+		endwhile;
+	
+		store(1,data_block);
+		load(1,[5*512+fat_in*8+2]);
+		
+		[6*512+data_block]=0;
+		
+		ind_in_basic=ind_in_basic+1;
+		load(1,[5*512+fat_in*8+2]);////////basic block loading
+	endwhile;
+	
+	alias temp1 S10;
+	temp1=512;
+	while(temp1<1024)do
+		[temp1]="";
+		temp1=temp1+1;
+	endwhile;
+	
+	store(1,[5*512+fat_in*8+2]);
+	
+	[6*512+[5*512+fat_in*8+2]]=0;
+	
+	
+	[5*512+fat_in*8+2]=-1;
+	[5*512+fat_in*8]=-1;
+	[5*512+fat_in*8+1]=0;
+
+	store(5,19);
+	store(6,20);
+	[physicalsp-2]=0;
+
+	print("deleted!!");
+
+endif;
+
+
+ireturn;

@@ -1,0 +1,23 @@
+
+
+if([MEM_LIST+[i]]==0)then	//if the page is not shared by any other 
+	while(j<512)do
+		[[i]*512+j]="";
+			j=j+1;
+	endwhile;
+endif;
+			
+			
+/////clearing old stack
+	
+	if([i+1]=="01"||[i+1]=="11")then
+		alias j S14;
+		j=0;
+		[MEM_LIST+[i]]=[MEM_LIST+[i]]-1;
+		if([MEM_LIST+[i]]==0)then	//if the page is not shared by any other 
+			while(j<512)do
+				[[i]*512+j]="";
+				j=j+1;
+			endwhile;
+		endif;
+	endif;

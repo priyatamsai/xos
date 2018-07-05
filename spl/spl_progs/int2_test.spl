@@ -1,0 +1,77 @@
+ //ireturn;
+
+alias physicalsp S0;
+physicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+
+alias syscallno S1;
+alias filename S2;
+filename=[physicalsp-3];
+
+//print"in int 2";
+
+syscallno=[physicalsp-1];
+//open
+if(syscallno==2)then
+	alias fat_in S3;
+	
+	fat_in=5*512;
+	while(fat_in<6*512)do
+	
+		if([fat_in]==filename)then
+			break;
+		endif;
+
+	fat_in=fat_in+8;
+
+	endwhile;
+
+	//////////////if no such file exist in fat return -1
+	
+	
+	if(fat_in>=6*512)then
+		[physicalsp-2]=-1;
+		ireturn;
+	endif;
+
+	fat_in=fat_in-5*512;
+	fat_in=fat_in/8;
+
+	
+	
+	
+	alias basic_no S15;
+	alias file_siz S14;
+	
+	file_siz=[5*512+fat_in*8+1]/512;
+	basic_no=[5*512+fat_in*8+2];
+	
+	alias i S13;
+	alias j S12;
+	alias tmp_word S11;
+	
+	load(1,basic_no);
+	i=0;
+	while(i<file_siz)do
+		load(1,[512+i]);
+		j=0;
+		while(j<512)do
+			tmp_word=[512+j];
+			print(tmp_word);
+			j=j+1;
+		endwhile;
+		load(1,basic_no);
+		i=i+1;
+	endwhile;
+	
+	
+	
+	
+	
+	
+	
+	
+
+	
+	[physicalsp-2]=0;
+	ireturn;
+endif;

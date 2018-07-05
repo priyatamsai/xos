@@ -1,0 +1,79 @@
+print "TIMER";
+alias currentPID S0;
+currentPID = (PTBR - 1024) / 8;
+
+alias currentPCB S1;
+currentPCB = READY_LIST + 32 * currentPID;
+
+[ currentPCB + 1 ] = 1; // Set STATE to READY
+
+[ currentPCB + 2 ] = BP;
+[ currentPCB + 3 ] = SP - 1; 
+
+alias physicalSP S2;
+physicalSP = ([PTBR + 2 * (SP / 512)] * 512) + (SP % 512); 
+
+[ currentPCB + 4 ] = [ physicalSP ]; // Save IP of current process in the PCB from the stack
+
+[ currentPCB + 5 ] = PTBR;
+[ currentPCB + 6 ] = PTLR ;
+
+[ currentPCB + 7 ] = R0;
+[ currentPCB + 8 ] = R1;
+[ currentPCB + 9 ] = R2;
+[ currentPCB + 10 ] = R3;
+[ currentPCB +11 ] = R4;
+[ currentPCB + 12 ] = R5;
+[ currentPCB + 13 ] = R6;
+[ currentPCB + 14 ] = R7;
+
+
+
+alias currl S3;
+currl=currentPCB+32;
+
+if(currl>2559) then
+currl=READY_LIST;
+endif;
+
+
+while([currl +1] !=1) do
+
+
+if(currl>2559) then
+currl=READY_LIST;
+
+currl=currl+32;
+
+endif;
+
+
+
+
+endwhile;
+
+breakpoint;
+	
+BP=[currl+2];
+SP=[currl+3];
+PTBR=[currl+5];
+PTLR=[currl+6];
+
+R0=[currl+7];
+R1=[currl+8];
+R2=[currl+9];
+R3=[currl+10];
+R4=[currl+11];
+R5=[currl+12];
+R6=[currl+13];
+R7=[currl+14];
+
+SP=SP+1;			// before ireturn IP value must be stored in top of stack
+alias newphysicalsp S2;
+newphysicalsp = ([PTBR+2*(SP/512)]*512)+(SP%512);
+[newphysicalsp]=[currl+4];
+
+[currl+1]=2;	
+
+
+ireturn; 

@@ -1,0 +1,141 @@
+ //ireturn;
+
+alias physicalsp S0;
+physicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+
+alias syscallno S1;
+alias filename S2;
+filename=[physicalsp-3];
+
+//print"in int 2";
+
+syscallno=[physicalsp-1];
+//open
+if(syscallno==2)then
+	alias fat_in S3;
+	
+	fat_in=5*512;
+	while(fat_in<6*512)do
+	
+		if([fat_in]==filename)then
+			break;
+		endif;
+
+	fat_in=fat_in+8;
+
+	endwhile;
+
+	//////////////if no such file exist in fat return -1
+	
+	
+	if(fat_in>=6*512)then
+		[physicalsp-2]=-1;
+		ireturn;
+	endif;
+
+	fat_in=fat_in-5*512;
+	fat_in=fat_in/8;
+
+
+	alias  swoft S4;
+	
+	swoft=1344;
+	while(swoft<1472)do
+		if([swoft]==fat_in)then
+			break;
+		endif;
+
+		swoft=swoft+2;
+	endwhile;
+
+	////////////////////to check where does fat_in occur in swoft if it present otherwise 		look for free entry
+
+	if(swoft>=1472)then
+		swoft=1344;
+		while(swoft<1472)do
+			if([swoft]==-1)then
+				break;
+			endif;
+			swoft=swoft+2;
+		endwhile;
+	endif;
+
+	///////////if no free entry in swoft return -1
+	
+	
+	
+	if(swoft>=1472)then
+		[physicalsp-2]=-1;
+		ireturn;
+	endif;
+
+	///////////checking in per proces open file table for free entry
+	alias currentPID S5;
+	currentPID = (PTBR - 1024) / 8;
+	
+	alias i S6;
+	
+	i=15;
+	while(i<=30)do
+		if([READY_LIST+currentPID*32+i]==-1)then
+			break;
+		endif;
+		i=i+2;
+	endwhile;
+//	print("&&");
+	if(i>30)then
+		[physicalsp-2]=-1;
+		ireturn;
+	endif;
+
+
+
+	/////////setting in swoft table
+	if([swoft]==-1)then
+		[swoft]=fat_in;
+		[swoft+1]=1;
+	else
+		[swoft+1]=[swoft+1]+1;
+	endif;
+
+	[READY_LIST+currentPID*32+i]=(swoft-1344)/2;
+	[READY_LIST+currentPID*32+i+1]=0;
+
+
+	[physicalsp-2]=(i-15)/2;
+endif;
+
+
+	//////////////sys call no==3 if close
+	
+if(syscallno==3)then
+
+	alias fileno S9;
+	fileno=[physicalsp-3];
+	/////////////////////////checking if file no. is valid or not.
+	if(fileno<0||fileno>7)then
+		[physicalsp-2]=-1;
+		ireturn;
+	endif;
+	alias currentPID S7;
+	currentPID = (PTBR - 1024) / 8;
+	//////////////////////// checking in pcb of current process whether file no. 			exist or not.
+	if([READY_LIST+currentPID*32+15+fileno*2]==-1)then
+		[physicalsp-2]=-1;
+		ireturn;
+	endif;
+	alias swof_in S8;
+	swof_in=[READY_LIST+currentPID*32+15+fileno*2];
+	////setting necessary changes in swof....what if swaf count =0 before decreasing
+	[1344+swof_in*2+1]=[1344+swof_in*2+1]-1;
+	if([1344+swof_in*2+1]==0)then
+		[1344+swof_in*2]=-1;
+	endif;
+	////setting per process open file of given file to -1
+	
+	[READY_LIST+currentPID*32+15+fileno*2]=-1;
+	[READY_LIST+currentPID*32+15+fileno*2+1]=-1;
+	[physicalsp-2]=0;
+endif;
+
+ireturn;

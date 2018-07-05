@@ -1,0 +1,185 @@
+//ireturn;
+
+alias physicalsp S0;
+physicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+
+alias syscallno S1;
+syscallno=[physicalsp-1];
+
+
+
+print"in int 6";
+	///exec system call
+if(syscallno==9)then
+print("exec");
+	alias filename S2;
+	filename=[physicalsp-3];//getting filename argument
+	
+	alias i S3;
+	i=5*512;
+	while(i<6*512)do
+		if(filename==[i])then  ////confirm about .exec extension
+			break;
+		endif;
+		i=i+8;
+	endwhile;
+	
+	if(i>=6*512)then
+	print("!!!1  exec");
+		[physicalsp-2]=-1;//return failure due to absence of file sent as argument
+print("!exec");
+		ireturn;
+	endif;
+	
+	load(1,[i+2]);//loading basic block
+	
+	
+	i=1*512;
+	while([i]!=-1&&[i]!="")do //counting no of code blocks in file
+		i=i+1;
+	endwhile;
+	alias fpcount S4;  //filepage count
+	fpcount=i-512;
+	
+	if(i>515)then
+	print("!!!2 exec");
+		[physicalsp-2]=-1;//return failure due to excess amount of exec file ie >3pages
+print("!exec");
+		ireturn;
+	endif;
+	
+	alias currcount S5;  //no of pages in currently opened process
+	currcount=0;
+	i=PTBR;
+	while(i<PTBR+6)do	//checking only code blocks
+		if([i+1]=="01"||[i+1]=="11")then
+			currcount=currcount+1;
+		endif;
+		i=i+2;
+	endwhile;
+	
+	if(currcount>fpcount)then   ///removing excess blocks from curr per process table
+		while(currcount==fpcount)do
+			[MEM_LIST+[PTBR+(currcount-1)*2]]=0;	//ADDED 
+			[PTBR+(currcount-1)*2]=-1;
+			[PTBR+(currcount-1)*2+1]="00";
+			currcount=currcount-1;
+		endwhile;
+	else  	
+		//allocating excess blocks required for new process
+		alias reqpages S6;
+		reqpages=(fpcount-currcount);
+		i=1280+25;//starting adress ie init and user start address
+		
+		while(reqpages!=0&&i<1344)do
+			if([i]==0)then
+				reqpages=reqpages-1;
+			endif;
+			i=i+1;
+		endwhile;
+		
+		if(reqpages!=0)then
+		print("!!!3 EXEC");
+			[physicalsp-2]=-1;//return failure due to absence of file sent as argument
+print("!exec");
+			ireturn;
+		endif;			
+		
+		i=1280+25;
+		while(fpcount!=currcount)do
+			while([i]!=0&&i<1344)do
+				i=i+1;
+			endwhile;
+			[i]=1;
+			
+			currcount=currcount+1;
+			[PTBR+(currcount-1)*2]=i-1280;
+			[PTBR+(currcount-1)*2+1]="11";////***know whether reference is 0 or 1
+			i=i+1;			//modified
+		endwhile;
+		
+		print("extra allocated");
+		
+	endif;
+	
+	i=0;
+	
+	while(i<fpcount)do
+		load([PTBR+i*2],[512+i]);
+		i=i+1;
+	endwhile;
+	
+	
+	///close all the files which are opened by currently opened process
+	
+	alias currentPID S4;
+	currentPID = (PTBR - 1024) / 8;
+	
+	i=15;
+	while(i<31)do
+		if([READY_LIST+currentPID*32+i]!=-1)then//closing all previously opened files
+			alias swopfilno S7;
+			swopfilno=[READY_LIST+currentPID*32+i];
+			[1344+swopfilno*2+1]=[1344+swopfilno*2+1]-1;
+			if([1344+swopfilno*2+1]==0)then
+				[1344+swopfilno*2]=-1;
+			endif;
+			[READY_LIST+currentPID*32+i]=-1;
+			[READY_LIST+currentPID*32+i+1]=-1;
+		endif;
+		
+		i=i+2;
+	endwhile;
+	
+	
+	
+	SP=3*512;
+//	BP=SP;
+	
+	SP=SP+1;
+	alias newphysicalsp S8;
+	newphysicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);	
+	
+	[newphysicalsp]=0; //setting ip
+	
+	print("executed");
+	[READY_LIST+currentPID*32+31]=-1;//setting ppid to -1;
+//	[physicalsp-2]=0;//return success
+//print("6 is over");
+print("!exec");
+	ireturn;
+endif;
+
+if(syscallno==11)then
+	alias processid S10;
+	processid=(PTBR-1024)/8;
+	[physicalsp-2]=processid;
+	ireturn;
+endif;
+
+	
+if(syscallno==12)then
+	alias processid S10;
+	processid=(PTBR-1024)/8;
+	[physicalsp-2]=[READY_LIST+32*processid+31];
+	ireturn;
+endif;
+
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	

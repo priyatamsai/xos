@@ -1,0 +1,197 @@
+////print"in exhndlr";
+
+ alias cause S1;
+ alias vpagenum S2;
+ alias ip_addr S3;
+ alias newphysicalsp S9;
+ alias physicalsp S15;
+ 
+cause = EFR % 10;		// Gets value of cause field (size 1 char)
+vpagenum = (EFR / 10) % 100;    // Gets value of BadVAddr 
+ip_addr = (EFR/1000);		//Gets value of IP at the point of exception
+
+alias pn S6;
+pn=[PTBR+2*vpagenum];
+
+if(cause!=0)then
+	////print error accordingly..and exit current running process
+	//print "diff cause";
+//	halt;
+
+SP=SP+1;
+physicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+[physicalsp]=10;
+SP=SP+1;
+physicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+[physicalsp]=ip_addr;
+
+
+inline"JMP 11776";	//exit
+	
+endif;
+
+if(pn==-1)then
+	////print due to invalid page and exit
+	//print "-1 pageno";
+	
+SP=SP+1;
+physicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+[physicalsp]=10;
+SP=SP+1;
+physicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+[physicalsp]=ip_addr;
+
+
+inline"JMP 11776";
+
+//	halt;
+endif;
+
+alias i S4;
+
+i=1280+25;//as free blocks can start from here.
+	/////checking free blocks in memory free list
+while(i<1344)do
+	if([i]==0)then
+		break;
+		
+	endif;
+	i=i+1;
+endwhile;
+
+if(i<1344)then
+	[i]=1;//allocating free page
+	load(i-1280,pn);//loading it to assigned
+	if(pn>=448)then
+		[DISK_LIST+pn]=[DISK_LIST+pn]-1;
+		store(6,20);
+	endif;
+	[PTBR+vpagenum*2]=i-MEM_LIST;
+	[PTBR+vpagenum*2+1]="11";
+	SP=SP+1;
+	newphysicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+	[newphysicalsp]=ip_addr;
+	ireturn;
+endif;
+
+alias j S5;
+j=PTBR;
+alias k S7;
+
+
+breakpoint;
+
+while(1==1)do
+////print"yes";
+	if(j>=1280)then
+		j=1024;
+	endif;
+	if(j%8==6)then	//if its stack page
+		j=j+2;
+		//print"stack";
+		continue;
+	endif;
+						/////1
+	if([j+1]=="00")then
+		//print"in zz";
+		j=j+2;
+		continue;
+	endif;					////2
+//if at all not ready process checking is required .check it.
+	//if([k+1]=="01"||[k+1]=="11")then	////-1
+	if([MEM_LIST+[j]]>1)then	//checking page is shared by more than 1
+		j=j+2;
+		//print"in mem";
+		continue;
+	endif;
+					/////3
+	if([j+1]=="11")then
+		//print"yyy";
+		[j+1]="01";
+		j=j+2;
+		continue;
+	endif;
+	break;		
+endwhile;
+
+if([j+1]=="01")then
+	//print"to check";
+	alias ind S8;
+	ind=448;
+	while(ind<512&&[DISK_LIST+ind]!=0)do
+		ind=ind+1;
+	endwhile;
+	if(ind==512)then
+		//print("no dfl space");
+		//breakpoint;
+		SP=SP+1;
+		physicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+		[physicalsp]=10;						//current process is sent to exit if no dfl is found
+		SP=SP+1;
+		physicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+		[physicalsp]=ip_addr;
+		inline"JMP 11776";
+		//	halt;
+	endif;
+
+	store([j],ind);
+	[DISK_LIST+ind]=1;
+	store(6,20);
+	load([j],pn);
+	[PTBR+vpagenum*2]=[j];
+	[PTBR+vpagenum*2+1]="11";
+
+	[j]=ind;
+	[j+1]="00";
+	if(pn>=448)then
+		[DISK_LIST+pn]=[DISK_LIST+pn]-1;
+		store(6,20);
+	endif;
+	//print "succes rep";
+	SP=SP+1;
+	newphysicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+	[newphysicalsp]=ip_addr;
+	ireturn;
+
+else
+
+print("invalid--");
+	//print"booooo";
+breakpoint;	//if execution comes here means an invalid has a refer. "10"..which is invalid.
+
+
+endif;
+
+//print ("full sharing");
+
+
+SP=SP+1;
+physicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+[physicalsp]=10;
+SP=SP+1;
+physicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+[physicalsp]=ip_addr;
+
+
+inline"JMP 11776";
+
+ireturn;
+
+//halt;
+
+
+
+	
+
+
+
+
+
+
+
+
+
+
+
+
+

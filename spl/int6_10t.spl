@@ -1,0 +1,368 @@
+//ireturn;
+
+alias physicalsp S0;
+physicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+
+alias syscallno S1;
+syscallno=[physicalsp-1];
+
+
+
+//print"in int 6";
+	///exec system call
+if(syscallno==9)then
+
+	alias filename S2;
+//	filename=[physicalsp-3];//getting filename argument
+//	
+//	alias i S3;
+//	i=5*512;
+//	while(i<6*512)do
+//		if(filename==[i])then  ////confirm about .exec extension
+//			break;
+//		endif;
+//		i=i+8;
+//	endwhile;
+//	
+//	if(i>=6*512)then
+//		[physicalsp-2]=-1;//return failure due to absence of file sent as argument
+//		ireturn;
+//	endif;
+	
+	
+	
+	/////////added 
+	
+	alias processid S10;
+	processid=(PTBR-1024)/8;
+	
+	alias filcount S15;
+	filcount=[(25*512)+5*processid];
+	
+	if(filcount>4)then
+		[physicalsp-2]=-1;//return failure due to absence of file sent as argument
+		ireturn;
+	endif;
+	
+	
+	filcount=filcount+1;
+	
+	[(25*512)+5*processid+filcount]=filename;
+	[(25*512)+5*processid]=filcount;
+	
+	[physicalsp-2]=0;//return failure due to absence of file sent as argument
+	ireturn;
+	
+	
+	breakpoint
+	print "goes here";
+	
+	
+	
+	processid=(PTBR-1024)/8;
+	filcount=[(25*512)+5*processid];
+	
+while(filcount!=0)do
+	
+alias filename S2;
+	filename=[(25*512)+5*processid+(filcount)];//getting filename argument
+	
+	alias i S3;
+	i=5*512;
+	while(i<6*512)do
+		if(filename==[i])then  ////confirm about .exec extension
+			break;
+		endif;
+		i=i+8;
+	endwhile;
+	
+	if(i>=6*512)then
+	//	[physicalsp-2]=-1;//return failure due to absence of file sent as argument
+	//has to be changed
+	//inline("JMP ");
+	//	ireturn;
+	filcount=filcount-1;
+	continue;
+	endif;
+	
+	
+	
+	
+	load(1,[i+2]);//loading basic block
+	
+	
+	i=1*512;
+	while([i]!=-1&&[i]!="")do //counting no of code blocks in file
+		i=i+1;
+	endwhile;
+	alias fpcount S4;  //filepage count
+	fpcount=i-512;
+	
+	if(i>515)then
+		filcount=filcount-1;
+		continue;
+	endif;
+	
+	alias freepcb S14;
+
+	freepcb=READY_LIST;
+
+	while(freepcb<2560&&[freepcb+1]!=0)do
+		freepcb=freepcb+32;
+	endwhile;
+
+	if(freepcb>=2560)then
+		break;
+	endif;
+	
+	alias childpid S13;
+	childpid=(freepcb-READY_LIST)/32;
+	[freepcb]=childpid;
+	
+	//alias i S12; already as s3
+	
+	
+	
+	i=1280+26;//as free blocks can start from here.
+	/////checking free blocks in memory free list
+	while(i<1344)do
+		if([i]==0)then
+			break;
+			
+		endif;
+		i=i+1;
+	endwhile;
+	
+	if(i==1344)then
+		break;
+	endif;
+	
+	
+	[i]=1;
+	
+	i=i-1280;
+	
+	alias k S11;
+	k=0;
+	while(k<512)do
+		[i*512+k]="";	//copying stack from par to child
+		k=k+1;
+	endwhile;
+	
+	[1024+childpid*8+6]=i;
+	[1024+childpid*8+7]="11";
+	
+	//alias childptbr 
+	i=0;
+	while([512+i]!=-1&&[512+i]!="")do //counting no of code blocks in file
+		[1024+childpid*8+2*i]=[512+i];
+		[1024+childpid*8+2*i+1]="00";
+		i=i+1;
+	endwhile;
+	
+	////////setting pcb;
+	
+	
+	j=(25*512)+5*childpid;
+	[j+0]=0;
+	[j+1]=-1;
+	[j+2]=-1;
+	[j+3]=-1;
+	[j+4]=-1;
+	
+alias childpcb S10;
+childpcb=READY_LIST+childpid*32;
+
+	[childpcb+5]=1024+childpid*8; //setting child ptbr in child pcb
+	
+	
+	[childpcb+4]=0; //setting ip value in child pcb
+	
+	[childpcb+3]=3*512; //setting sp in child pcb
+	
+	[childpcb+2]=BP;
+	[childpcb+7]="";
+	[childpcb+8]="";	
+	[childpcb+9]="";
+	[childpcb+10]="";		//setting machine registers
+	[childpcb+11]="";
+	[childpcb+12]="";
+	[childpcb+13]="";
+	[childpcb+14]="";
+	[childpcb+6]=PTLR;//setting ptlr to child pcb
+	[childpcb+1]=1;//ready state
+	[childpcb+31]=-1;//setting ppid
+	i=15;
+	while(i<31)do
+		[childpcb+i]=-1;
+		[childpcb+i+1]=-1;
+		
+		///if([childpcb+i]!=-1)then
+		//	[1344+[childpcb+i]*2+1]=[1344+[childpcb+i]*2+1]+1;
+		//endif;
+		
+		i=i+2;
+	endwhile;
+
+
+
+endwhile;
+
+alias j S9;
+j=(25*512)+5*processid;
+	[j+0]=0;
+	[j+1]=-1;
+	[j+2]=-1;
+	[j+3]=-1;
+	[j+4]=-1;
+
+
+inline("JMP 4608");//timer;
+
+
+
+	
+	
+	
+	
+	//////// added upto here
+	
+	
+	
+	
+	
+	
+	
+//	load(1,[i+2]);//loading basic block
+//	
+//	
+//	i=1*512;
+//	while([i]!=-1&&[i]!="")do //counting no of code blocks in file
+//		i=i+1;
+//	endwhile;
+//	alias fpcount S4;  //filepage count
+//	fpcount=i-512;
+//	
+//	if(i>515)then
+//		[physicalsp-2]=-1;//return failure due to excess amount of exec file ie >3pages
+//		ireturn;
+//	endif;
+	
+//	------------------------------------------------------
+
+	
+	
+	
+	
+	
+	alias currcount S5;  //no of pages in currently opened process
+	currcount=0;
+	i=PTBR;
+	while(i<PTBR+6)do
+		if([i+1]=="01"||[i+1]=="11")then
+			[MEM_LIST+[i]]=[MEM_LIST+[i]]-1;
+			
+		else 
+		if([i]>=448)then
+			[DISK_LIST+[i]]=[DISK_LIST+[i]]-1;
+			store(6,20);	//commiting dfl back
+			
+			endif;
+		endif;
+		[i]=-1;
+		[i+1]="00";
+		
+		i=i+2;
+	endwhile;
+	
+	
+	
+	
+	
+//	load(1,[i+2]);//loading basic block   which is already loaded above
+	
+	
+	i=1*512;
+	while([i]!=-1&&[i]!="")do //assigning disk page no.s
+		[PTBR+(i-512)*2]=[i];
+		[PTBR+(i-512)*2+1]="00";
+		i=i+1;
+	endwhile;
+	
+	
+	
+	
+	
+
+	///close all the files which are opened by currently opened process
+	
+	alias currentPID S4;
+	currentPID = (PTBR - 1024) / 8;
+	
+	i=15;
+	while(i<31)do
+		if([READY_LIST+currentPID*32+i]!=-1)then//closing all previously opened files
+			alias swopfilno S7;
+			swopfilno=[READY_LIST+currentPID*32+i];
+			[1344+swopfilno*2+1]=[1344+swopfilno*2+1]-1;
+			if([1344+swopfilno*2+1]==0)then
+				[1344+swopfilno*2]=-1;
+			endif;
+			[READY_LIST+currentPID*32+i]=-1;
+			[READY_LIST+currentPID*32+i+1]=-1;
+		endif;
+		
+		i=i+2;
+	endwhile;
+	
+	
+	
+	SP=3*512;
+//	BP=SP;
+	
+	SP=SP+1;
+	alias newphysicalsp S8;
+	newphysicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);	
+	
+	[newphysicalsp]=0; //setting ip
+	
+	//print("executed");
+	[READY_LIST+currentPID*32+31]=-1;//setting ppid to -1;
+//	[physicalsp-2]=0;//return success
+//print("6 is over");
+	ireturn;
+endif;
+
+if(syscallno==11)then
+	alias processid S10;
+	processid=(PTBR-1024)/8;
+	[physicalsp-2]=processid;
+	ireturn;
+endif;
+
+	
+if(syscallno==12)then
+	alias processid S10;
+	processid=(PTBR-1024)/8;
+	[physicalsp-2]=[READY_LIST+32*processid+31];
+	ireturn;
+endif;
+
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	

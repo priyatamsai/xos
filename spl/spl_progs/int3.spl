@@ -1,0 +1,100 @@
+alias physicalsp S0;
+physicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+
+alias syscallno S1;
+syscallno=[physicalsp-1];
+
+
+
+//print"in int 3";
+	///seek system call
+if(syscallno==6)then
+	alias filedis S2;
+	filedis=[physicalsp-4];
+	alias newseek S3;
+	newseek=[physicalsp-3];
+
+	if(filedis<0||filedis>7)then
+		[physicalsp-2]=-1;
+		ireturn;
+	endif;
+	
+	alias currentPID S4;
+	currentPID = (PTBR - 1024) / 8;
+	///checking in per proces open file table for free entry
+	if([READY_LIST+currentPID*32+15+filedis*2]==-1)then
+		[physicalsp-2]=-1;
+		ireturn;
+	endif;
+
+	///check in swoft to get corresponding fat entry
+	alias fat_ind S5;
+	fat_ind=[1344+[READY_LIST+currentPID*32+15+filedis*2]*2];
+	
+		///getting fat size and checking with newlseek
+	if([5*512+fat_ind*8+1]<=newseek||newseek<0)then
+		[physicalsp-2]=-1;
+		ireturn;
+	endif;
+
+	[READY_LIST+currentPID*32+15+filedis*2+1]=newseek;
+	
+	
+	[physicalsp-2]=0;
+endif;
+
+if(syscallno==7)then////read syscall
+	alias filedis S2;
+	filedis=[physicalsp-4];
+	
+	if(filedis<0||filedis>7)then
+		[physicalsp-3]="error";
+		[physicalsp-2]=-1;
+		ireturn;
+	endif;
+		///checking in per proces open file table for free entry
+	alias currentPID S4;
+	currentPID = (PTBR - 1024) / 8;
+	
+	if([READY_LIST+currentPID*32+15+filedis*2]==-1)then
+		[physicalsp-3]="error";
+		[physicalsp-2]=-1;
+		ireturn;
+	endif;
+	
+	///check in swoft to get corresponding fat entry
+	alias fat_ind S5;
+	fat_ind=[1344+[READY_LIST+currentPID*32+15+filedis*2]*2];
+	
+	alias lseek S6;
+
+	lseek=[READY_LIST+currentPID*32+15+filedis*2+1];
+
+		///loading basic block
+	load(1,[5*512+fat_ind*8+2]);
+	
+	
+	
+	alias datablk S7;
+	datablk=[512+lseek/512];
+	//	db=512+lseek/512;
+	if(datablk==-1)then//////do some eof file checking ..once confirm about this
+		[physicalsp-3]="-1";
+		[physicalsp-2]=-1;
+		ireturn;
+	endif;
+	
+	load(1,datablk);
+	[READY_LIST+currentPID*32+15+filedis*2+1]=[READY_LIST+currentPID*32+15+filedis*2+1]+1;
+	[physicalsp-3]=[512+lseek%512];
+	[physicalsp-2]=0;
+endif;
+ireturn;
+
+
+
+
+
+
+
+

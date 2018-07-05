@@ -1,0 +1,163 @@
+//ireturn;
+
+alias physicalsp S0;
+physicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);
+
+alias syscallno S1;
+syscallno=[physicalsp-1];
+
+
+
+//print"in int 6";
+	///exec system call
+if(syscallno==9)then
+	alias filename S2;
+	filename=[physicalsp-3];//getting filename argument
+	
+	alias i S3;
+	i=5*512;
+	while(i<6*512)do
+		if(filename==[i])then  ////confirm about .exec extension
+			break;
+		endif;
+		i=i+8;
+	endwhile;
+	
+	if(i>=6*512)then
+		[physicalsp-2]=-1;//return failure due to absence of file sent as argument
+		ireturn;
+	endif;
+	
+	load(1,[i+2]);//loading basic block
+	
+	
+	i=1*512;
+	while([i]!=-1&&[i]!="")do //counting no of code blocks in file
+		i=i+1;
+	endwhile;
+	alias fpcount S4;  //filepage count
+	fpcount=i-512;
+	
+	if(i>515)then
+		[physicalsp-2]=-1;//return failure due to excess amount of exec file ie >3pages
+		ireturn;
+	endif;
+	
+//	------------------------------------------------------
+
+	
+	
+	
+	
+	
+	alias currcount S5;  //no of pages in currently opened process
+	currcount=0;
+	i=PTBR;
+	while(i<PTBR+6)do
+		if([i+1]=="01"||[i+1]=="11")then
+			[MEM_LIST+[i]]=[MEM_LIST+[i]]-1;
+			
+		else 
+		if([i]>=448)then
+			[DISK_LIST+[i]]=[DISK_LIST+[i]]-1;
+			store(6,20);	//commiting dfl back
+			
+			endif;
+		endif;
+		[i]=-1;
+		[i+1]="00";
+		
+		i=i+2;
+	endwhile;
+	
+	
+	
+	
+	
+//	load(1,[i+2]);//loading basic block   which is already loaded above
+	
+	
+	i=1*512;
+	while([i]!=-1&&[i]!="")do //assigning disk page no.s
+		[PTBR+(i-512)*2]=[i];
+		[PTBR+(i-512)*2+1]="00";
+		i=i+1;
+	endwhile;
+	
+	
+	
+	
+	
+
+	///close all the files which are opened by currently opened process
+	
+	alias currentPID S4;
+	currentPID = (PTBR - 1024) / 8;
+	
+	i=15;
+	while(i<31)do
+		if([READY_LIST+currentPID*32+i]!=-1)then//closing all previously opened files
+			alias swopfilno S7;
+			swopfilno=[READY_LIST+currentPID*32+i];
+			[1344+swopfilno*2+1]=[1344+swopfilno*2+1]-1;
+			if([1344+swopfilno*2+1]==0)then
+				[1344+swopfilno*2]=-1;
+			endif;
+			[READY_LIST+currentPID*32+i]=-1;
+			[READY_LIST+currentPID*32+i+1]=-1;
+		endif;
+		
+		i=i+2;
+	endwhile;
+	
+	
+	
+	SP=3*512;
+//	BP=SP;
+	
+	SP=SP+1;
+	alias newphysicalsp S8;
+	newphysicalsp=([PTBR + 2 * (SP / 512)] * 512) + (SP % 512);	
+	
+	[newphysicalsp]=0; //setting ip
+	
+	//print("executed");
+	[READY_LIST+currentPID*32+31]=-1;//setting ppid to -1;
+//	[physicalsp-2]=0;//return success
+//print("6 is over");
+	ireturn;
+endif;
+
+if(syscallno==11)then
+	alias processid S10;
+	processid=(PTBR-1024)/8;
+	[physicalsp-2]=processid;
+	ireturn;
+endif;
+
+	
+if(syscallno==12)then
+	alias processid S10;
+	processid=(PTBR-1024)/8;
+	[physicalsp-2]=[READY_LIST+32*processid+31];
+	ireturn;
+endif;
+
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	

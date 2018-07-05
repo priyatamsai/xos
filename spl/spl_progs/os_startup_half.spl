@@ -1,0 +1,66 @@
+alias counter S0;			
+counter = 0;
+while ( counter <  128) do			// 64 entries, each of size 2 words
+	[ FILE_TABLE + counter + 0] = -1;	// Set FAT Index to -1
+	[ FILE_TABLE + counter + 1] =  0;	// Set File Open Count to 0
+	counter = counter + 2;			// Move to next entry
+endwhile;
+
+
+load(7,1);//eception
+load(8,2);
+
+load(23,17);//int=7
+load(24,18);
+[READY_LIST +0]=0;
+
+load(25,21); // Load 1st page of code from disk to memory///////////////init
+load(26,22); // Load 2nd page of code from disk to memory
+load(27,23);
+
+load (11, 5);//int 1
+load (12, 6);
+
+load (13, 7);//int 2
+load (14, 8);
+
+//load (9, 3);//timer
+//load (10, 4);
+
+PTBR = 1024;
+PTLR=4;
+
+
+
+
+[PTBR + 0] = 25; // Physical Page Number for Logical Page 0
+[PTBR + 1] = "01";
+[PTBR + 2] = 26; // Physical Page Number for Logical Page 0
+[PTBR + 3] = "01";
+[PTBR + 4] = 27; // Physical Page Number for Logical Page 0
+[PTBR + 5] = "01";
+[PTBR + 6] = 28; // Physical Page Number for Logical Page 0
+[PTBR + 7] = "01";
+[READY_LIST + 1] = 2;
+
+alias ind S1;
+//////////setting ppoft entries to -1 in pcb
+ind=15;
+while(ind<=30)do
+[READY_LIST+ind]=-1;
+ind=ind+1;
+endwhile;
+
+
+
+
+SP = 3 * 512;
+[28*512]=0;
+
+//////////////7th stage
+load(5,19);///////////fat
+load(6,20);///////////dfl
+
+
+
+ireturn;
