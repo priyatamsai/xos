@@ -1,0 +1,3 @@
+this is a platform which gives oppurtunity to built os datastructures in a simulated xsm architecture
+
+and this will make students learn Os and its architecture in a very easy. 
