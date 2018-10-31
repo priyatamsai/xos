@@ -1,0 +1,1 @@
+this is a platform which gives oppurtunity to built os datastructures in a simulated xsm architecture
