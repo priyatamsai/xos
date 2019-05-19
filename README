@@ -3,7 +3,7 @@ Experimental Operating System (XOS)
 
 This project(XOS) is to build a toy operating system, 
 
-Implementing different modules of XOS involve OS concepts including Memory management, Process management, and File management
+Implementing different modules of XOS involves OS concepts including Memory management, Process management, and File management
 techniques.
 
 This project is as part of OS lab at NITC.
